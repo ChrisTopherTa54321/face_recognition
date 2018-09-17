@@ -23,17 +23,17 @@ test_requirements = [
 ]
 
 setup(
-    name='face_recognition',
-    version='1.2.3',
+    name='face_recognition_',
+    version='1.2.3_',
     description="Recognize faces from Python or from the command line",
     long_description=readme + '\n\n' + history,
     author="Adam Geitgey",
     author_email='ageitgey@gmail.com',
     url='https://github.com/ageitgey/face_recognition',
     packages=[
-        'face_recognition',
+        'face_recognition_hst',
     ],
-    package_dir={'face_recognition': 'face_recognition'},
+    package_dir={'face_recognition_hst': 'face_recognition_hst'},
     package_data={
         'face_recognition': ['models/*.dat']
     },
