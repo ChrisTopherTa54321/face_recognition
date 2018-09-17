@@ -23,8 +23,8 @@ test_requirements = [
 ]
 
 setup(
-    name='face_recognition_',
-    version='1.2.3_',
+    name='face_recognition_hst',
+    version='1.2.3',
     description="Recognize faces from Python or from the command line",
     long_description=readme + '\n\n' + history,
     author="Adam Geitgey",
