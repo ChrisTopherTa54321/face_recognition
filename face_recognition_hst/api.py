@@ -43,6 +43,8 @@ def _css_to_rect(css):
     :param css:  plain tuple representation of the rect in (top, right, bottom, left) order
     :return: a dlib `rect` object
     """
+    if isinstance(css, dlib.rectangle):
+        return css
     return dlib.rectangle(css[3], css[0], css[1], css[2])
 
 
@@ -172,7 +174,11 @@ def face_landmarks(face_image, face_locations=None, model="large"):
     :return: A list of dicts of face feature locations (eyes, nose, etc)
     """
     landmarks = _raw_face_landmarks(face_image, face_locations, model)
-    landmarks_as_tuples = [[(p.x, p.y) for p in landmark.parts()] for landmark in landmarks]
+    return raw_landmarks_to_landmarks( landmarks )
+
+
+def raw_landmarks_to_landmarks( raw_landmarks, model="large" ):
+    landmarks_as_tuples = [[(p.x, p.y) for p in landmark.parts()] for landmark in raw_landmarks]
 
     # For a definition of each point index, see https://cdn-images-1.medium.com/max/1600/1*AbEg31EgkbXSQehuNJBlWg.png
     if model == 'large':
@@ -195,7 +201,6 @@ def face_landmarks(face_image, face_locations=None, model="large"):
         } for points in landmarks_as_tuples]
     else:
         raise ValueError("Invalid landmarks model type. Supported models are ['small', 'large'].")
-
 
 def face_encodings(face_image, known_face_locations=None, num_jitters=1):
     """
@@ -234,6 +239,42 @@ def batch_face_encodings(face_images, known_face_locations=None, num_jitters=1):
 
     raw_landmarks = [to_fod(landmarks) for landmarks in raw_landmarks]
     return np.array(face_encoder.compute_face_descriptor(face_images, raw_landmarks, num_jitters))
+
+
+def batch_face_encodings_and_landmarks(face_images, known_face_locations=None, num_jitters=1, landmark_model="small", location_model="cnn", batch_size=128):
+    """
+    Given an array of images, return an array where the i-th cell is an array of 128-dimension face encodings for each face in the i-th image.
+
+    :param face_images: An array of images that contains one or more faces
+    :param known_face_locations: Optional - the bounding boxes of each face in each image if you already know them.
+    :param num_jitters: How many times to re-sample the face when calculating encoding. Higher is more accurate, but slower (i.e. 100 is 100x slower)
+    :return: A list of lists of 128-dimensional face encodings (one list for each face in each image)
+    """
+    if known_face_locations is None:
+        if location_model == "cnn":
+            batch_face_locations = _raw_face_locations_batched(face_images, batch_size=batch_size)
+            known_face_locations = []
+            for img_face_locations in batch_face_locations:
+                known_face_locations.append( [ mrect.rect for mrect in img_face_locations ] )
+            raw_landmarks = [_raw_face_landmarks(face_info[0], face_info[1], model=landmark_model) for face_info in zip(face_images,known_face_locations)]
+        else:
+            raw_landmarks = [_raw_face_landmarks(face_image, None, model=landmark_model) for face_image in face_images]
+    else:
+        raw_landmarks = [
+                _raw_face_landmarks(face_image, this_known_face_locations, model=landmark_model)
+                for face_image, this_known_face_locations in zip(face_images, known_face_locations)
+        ]
+
+    def to_fod(landmarks):
+        detects = dlib.full_object_detections()
+        detects.extend(landmarks)
+        return detects
+
+    landmarks = [ raw_landmarks_to_landmarks( raw_landmark, landmark_model ) for raw_landmark in raw_landmarks ]
+    raw_landmarks = [to_fod(landmarks) for landmarks in raw_landmarks]
+
+    return np.array(face_encoder.compute_face_descriptor(face_images, raw_landmarks, num_jitters)), landmarks
+
 
 
 def compare_faces(known_face_encodings, face_encoding_to_check, tolerance=0.6):
